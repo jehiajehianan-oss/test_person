@@ -1,0 +1,175 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>✨ 粒子拼图 · 风格切换</title>
+    <style>
+        /* ===== 全局 & 基础风格变量 ===== */
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        body {
+            font-family: 'Segoe UI', 'PingFang SC', Roboto, sans-serif;
+            overflow: hidden;
+            height: 100vh;
+            background: #0b0e1a;
+            user-select: none;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: background 0.6s ease, box-shadow 0.6s ease;
+        }
+
+        /* ===== 粒子画布 ===== */
+        #particleCanvas {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 0;
+            pointer-events: none;
+        }
+
+        /* ===== 主卡片 ===== */
+        #app {
+            position: relative;
+            z-index: 1;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            width: 100%;
+            height: 100%;
+            padding: 16px;
+        }
+        #game-card {
+            background: rgba(255, 255, 255, 0.07);
+            backdrop-filter: blur(18px) saturate(1.4);
+            -webkit-backdrop-filter: blur(18px) saturate(1.4);
+            border-radius: 36px;
+            padding: 30px 36px 36px 36px;
+            box-shadow: 0 25px 60px rgba(0, 0, 0, 0.7), 0 0 0 1px rgba(255, 255, 255, 0.06);
+            max-width: 600px;
+            width: 100%;
+            transition: background 0.6s ease, box-shadow 0.6s ease, border-color 0.6s ease;
+            border: 1px solid transparent;
+        }
+
+        /* ===== 头部 ===== */
+        .header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 18px;
+            flex-wrap: wrap;
+            gap: 10px;
+        }
+        .header-left {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .header-left h1 {
+            font-size: 26px;
+            font-weight: 700;
+            color: #fff;
+            letter-spacing: 1px;
+            text-shadow: 0 2px 12px rgba(100, 200, 255, 0.3);
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .header-left h1 span {
+            font-size: 28px;
+        }
+        .header-right {
+            display: flex;
+            align-items: center;
+            gap: 14px;
+            flex-wrap: wrap;
+        }
+        .stats {
+            display: flex;
+            gap: 16px;
+            color: rgba(255, 255, 255, 0.7);
+            font-size: 14px;
+            font-weight: 500;
+            background: rgba(0, 0, 0, 0.25);
+            padding: 4px 14px;
+            border-radius: 40px;
+            backdrop-filter: blur(4px);
+        }
+        .stats .num {
+            color: #fff;
+            font-weight: 700;
+            font-size: 17px;
+            margin-left: 3px;
+            min-width: 24px;
+            display: inline-block;
+            text-align: center;
+        }
+        .stat-item {
+            display: flex;
+            align-items: center;
+            gap: 4px;
+        }
+
+        /* 风格按钮组 */
+        .style-group {
+            display: flex;
+            gap: 6px;
+            background: rgba(0, 0, 0, 0.2);
+            padding: 4px 6px;
+            border-radius: 40px;
+            backdrop-filter: blur(4px);
+        }
+        .style-btn {
+            border: none;
+            background: transparent;
+            color: rgba(255, 255, 255, 0.5);
+            font-size: 20px;
+            padding: 4px 8px;
+            border-radius: 30px;
+            cursor: pointer;
+            transition: all 0.25s ease;
+            line-height: 1;
+            font-weight: 600;
+        }
+        .style-btn:hover {
+            color: #fff;
+            background: rgba(255, 255, 255, 0.1);
+        }
+        .style-btn.active {
+            color: #fff;
+            background: rgba(255, 255, 255, 0.18);
+            box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.15);
+        }
+
+        /* ===== 拼图容器 ===== */
+        #puzzle-wrap {
+            position: relative;
+            width: 100%;
+            aspect-ratio: 1 / 1;
+            background: rgba(0, 0, 0, 0.35);
+            border-radius: 20px;
+            overflow: hidden;
+            box-shadow: inset 0 0 30px rgba(0, 0, 0, 0.4);
+            margin: 6px 0 12px 0;
+        }
+        #puzzle-grid {
+            display: grid;
+            width: 100%;
+            height: 100%;
+            gap: 3px;
+            padding: 3px;
+        }
+        .tile {
+            background-size: 100% 100%;
+            background-position: center;
+            background-repeat: no-repeat;
+            border-radius: 8px;
+            cursor: pointer;
+            transi
