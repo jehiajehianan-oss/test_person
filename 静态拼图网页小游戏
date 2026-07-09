@@ -1,0 +1,843 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>✨ 粒子拼图游戏</title>
+    <style>
+        /* ===== 全局重置 ===== */
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        body {
+            font-family: 'Segoe UI', 'PingFang SC', Roboto, sans-serif;
+            overflow: hidden;
+            height: 100vh;
+            background: #0b0e1a;
+            user-select: none;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        /* ===== 粒子画布 ===== */
+        #particleCanvas {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 0;
+            pointer-events: none;
+        }
+
+        /* ===== 主卡片 ===== */
+        #app {
+            position: relative;
+            z-index: 1;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            width: 100%;
+            height: 100%;
+            padding: 16px;
+        }
+        #game-card {
+            background: rgba(255, 255, 255, 0.07);
+            backdrop-filter: blur(18px) saturate(1.4);
+            -webkit-backdrop-filter: blur(18px) saturate(1.4);
+            border-radius: 36px;
+            padding: 30px 36px 36px 36px;
+            box-shadow: 0 25px 60px rgba(0, 0, 0, 0.7), 0 0 0 1px rgba(255, 255, 255, 0.06);
+            max-width: 600px;
+            width: 100%;
+            transition: all 0.3s ease;
+        }
+
+        /* ===== 头部 ===== */
+        .header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 18px;
+            flex-wrap: wrap;
+            gap: 10px;
+        }
+        .header h1 {
+            font-size: 26px;
+            font-weight: 700;
+            color: #fff;
+            letter-spacing: 1px;
+            text-shadow: 0 2px 12px rgba(100, 200, 255, 0.3);
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .header h1 span {
+            font-size: 28px;
+        }
+        .stats {
+            display: flex;
+            gap: 20px;
+            color: rgba(255, 255, 255, 0.7);
+            font-size: 15px;
+            font-weight: 500;
+            background: rgba(0, 0, 0, 0.25);
+            padding: 6px 16px;
+            border-radius: 40px;
+            backdrop-filter: blur(4px);
+        }
+        .stats .num {
+            color: #fff;
+            font-weight: 700;
+            font-size: 18px;
+            margin-left: 4px;
+            min-width: 28px;
+            display: inline-block;
+            text-align: center;
+        }
+        .stat-item {
+            display: flex;
+            align-items: center;
+            gap: 4px;
+        }
+
+        /* ===== 拼图容器 ===== */
+        #puzzle-wrap {
+            position: relative;
+            width: 100%;
+            aspect-ratio: 1 / 1;
+            background: rgba(0, 0, 0, 0.35);
+            border-radius: 20px;
+            overflow: hidden;
+            box-shadow: inset 0 0 30px rgba(0, 0, 0, 0.4);
+            margin: 6px 0 12px 0;
+        }
+        #puzzle-grid {
+            display: grid;
+            width: 100%;
+            height: 100%;
+            gap: 3px;
+            padding: 3px;
+        }
+        .tile {
+            background-size: 100% 100%;
+            background-position: center;
+            background-repeat: no-repeat;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: transform 0.12s ease, box-shadow 0.15s ease, opacity 0.15s ease;
+            position: relative;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+            will-change: transform;
+        }
+        .tile:hover:not(.tile-empty) {
+            transform: scale(1.04);
+            z-index: 2;
+            box-shadow: 0 6px 20px rgba(0, 0, 0, 0.5);
+        }
+        .tile:active:not(.tile-empty) {
+            transform: scale(0.94);
+        }
+        .tile-empty {
+            background: rgba(255, 255, 255, 0.03) !important;
+            box-shadow: none !important;
+            cursor: default;
+            border: 1px dashed rgba(255, 255, 255, 0.08);
+            border-radius: 8px;
+        }
+        .tile-empty:hover {
+            transform: none !important;
+        }
+
+        /* ===== 胜利蒙层 ===== */
+        #win-overlay {
+            position: absolute;
+            inset: 0;
+            background: rgba(0, 0, 0, 0.55);
+            backdrop-filter: blur(8px);
+            -webkit-backdrop-filter: blur(8px);
+            display: none;
+            align-items: center;
+            justify-content: center;
+            flex-direction: column;
+            border-radius: 20px;
+            z-index: 10;
+            animation: fadeIn 0.5s ease;
+        }
+        #win-overlay.show {
+            display: flex;
+        }
+        #win-overlay .win-icon {
+            font-size: 72px;
+            margin-bottom: 10px;
+            animation: bounce 1s infinite;
+        }
+        #win-overlay .win-text {
+            font-size: 32px;
+            font-weight: 700;
+            color: #fff;
+            text-shadow: 0 4px 20px rgba(255, 215, 0, 0.5);
+        }
+        #win-overlay .win-sub {
+            color: rgba(255, 255, 255, 0.7);
+            font-size: 16px;
+            margin-top: 6px;
+        }
+
+        @keyframes fadeIn {
+            from {
+                opacity: 0;
+                transform: scale(0.92);
+            }
+            to {
+                opacity: 1;
+                transform: scale(1);
+            }
+        }
+        @keyframes bounce {
+            0%,
+            100% {
+                transform: translateY(0);
+            }
+            50% {
+                transform: translateY(-14px);
+            }
+        }
+
+        /* ===== 控制栏 ===== */
+        .controls {
+            display: flex;
+            gap: 12px;
+            flex-wrap: wrap;
+            margin-top: 8px;
+        }
+        .controls button {
+            flex: 1;
+            min-width: 80px;
+            padding: 12px 18px;
+            border: none;
+            border-radius: 40px;
+            font-size: 15px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            background: rgba(255, 255, 255, 0.08);
+            color: #fff;
+            backdrop-filter: blur(4px);
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.2);
+            letter-spacing: 0.3px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 6px;
+        }
+        .controls button:hover {
+            transform: translateY(-2px);
+            background: rgba(255, 255, 255, 0.16);
+            box-shadow: 0 6px 25px rgba(0, 0, 0, 0.3);
+        }
+        .controls button:active {
+            transform: scale(0.96);
+        }
+        .controls button.primary {
+            background: linear-gradient(135deg, #6c5ce7, #a29bfe);
+            color: #fff;
+        }
+        .controls button.primary:hover {
+            background: linear-gradient(135deg, #7d6ff0, #b3acff);
+            box-shadow: 0 6px 30px rgba(108, 92, 231, 0.4);
+        }
+        .controls button.secondary {
+            background: rgba(255, 255, 255, 0.06);
+        }
+        .controls button .icon {
+            font-size: 18px;
+        }
+        .controls .size-group {
+            display: flex;
+            gap: 6px;
+            flex: 0.7;
+            min-width: 100px;
+        }
+        .controls .size-group button {
+            flex: 1;
+            min-width: 40px;
+            padding: 12px 6px;
+            font-size: 14px;
+        }
+        .controls .size-group button.active {
+            background: rgba(108, 92, 231, 0.45);
+            box-shadow: 0 0 0 2px rgba(108, 92, 231, 0.5);
+        }
+
+        /* ===== 响应式 ===== */
+        @media (max-width: 520px) {
+            #game-card {
+                padding: 18px 16px 20px 16px;
+                border-radius: 24px;
+            }
+            .header h1 {
+                font-size: 20px;
+            }
+            .header h1 span {
+                font-size: 22px;
+            }
+            .stats {
+                font-size: 13px;
+                padding: 4px 12px;
+                gap: 12px;
+            }
+            .stats .num {
+                font-size: 15px;
+                min-width: 20px;
+            }
+            .controls button {
+                font-size: 13px;
+                padding: 10px 12px;
+                min-width: 60px;
+            }
+            #win-overlay .win-icon {
+                font-size: 52px;
+            }
+            #win-overlay .win-text {
+                font-size: 24px;
+            }
+            .tile {
+                border-radius: 5px;
+            }
+            #puzzle-grid {
+                gap: 2px;
+                padding: 2px;
+            }
+            #puzzle-wrap {
+                border-radius: 14px;
+            }
+        }
+        @media (max-width: 400px) {
+            #game-card {
+                padding: 12px 10px 16px 10px;
+                border-radius: 18px;
+            }
+            .header h1 {
+                font-size: 17px;
+            }
+            .stats {
+                font-size: 11px;
+                padding: 3px 8px;
+                gap: 8px;
+            }
+            .stats .num {
+                font-size: 13px;
+                min-width: 16px;
+            }
+            .controls button {
+                font-size: 11px;
+                padding: 8px 8px;
+                min-width: 44px;
+            }
+        }
+
+        /* ===== 过渡动画 ===== */
+        .tile-move {
+            transition: transform 0.18s cubic-bezier(0.34, 1.56, 0.64, 1) !important;
+        }
+        .tile-win {
+            animation: winPulse 0.6s ease;
+        }
+        @keyframes winPulse {
+            0%,
+            100% {
+                transform: scale(1);
+            }
+            50% {
+                transform: scale(1.06);
+            }
+        }
+    </style>
+</head>
+<body>
+
+    <!-- ===== 粒子画布 ===== -->
+    <canvas id="particleCanvas"></canvas>
+
+    <!-- ===== 游戏主卡 ===== -->
+    <div id="app">
+        <div id="game-card">
+
+            <!-- 头部 -->
+            <div class="header">
+                <h1><span>🧩</span> 粒子拼图</h1>
+                <div class="stats">
+                    <span class="stat-item">🚶 <span class="num" id="moveCount">0</span></span>
+                    <span class="stat-item">⏱ <span class="num" id="timerDisplay">0</span>s</span>
+                </div>
+            </div>
+
+            <!-- 拼图 -->
+            <div id="puzzle-wrap">
+                <div id="puzzle-grid"></div>
+                <!-- 胜利蒙层 -->
+                <div id="win-overlay">
+                    <div class="win-icon">🎉</div>
+                    <div class="win-text">拼图完成！</div>
+                    <div class="win-sub">用了 <span id="winMoves">0</span> 步，耗时 <span id="winTime">0</span> 秒</div>
+                </div>
+            </div>
+
+            <!-- 控制栏 -->
+            <div class="controls">
+                <button class="primary" id="btnReset"><span class="icon">⟳</span> 重新开始</button>
+                <div class="size-group">
+                    <button data-size="3" id="btnSize3">3×3</button>
+                    <button data-size="4" id="btnSize4" class="active">4×4</button>
+                </div>
+            </div>
+
+        </div>
+    </div>
+
+    <script>
+        // ============================================================
+        //  1. 粒子系统
+        // ============================================================
+        const canvas = document.getElementById('particleCanvas');
+        const ctx = canvas.getContext('2d');
+        let W, H;
+        let particles = [];
+        const PARTICLE_COUNT = 130;
+        const CONNECTION_DIST = 140;
+
+        function resizeCanvas() {
+            W = canvas.width = window.innerWidth;
+            H = canvas.height = window.innerHeight;
+        }
+        window.addEventListener('resize', resizeCanvas);
+        resizeCanvas();
+
+        class Particle {
+            constructor() {
+                this.reset();
+            }
+            reset() {
+                this.x = Math.random() * W;
+                this.y = Math.random() * H;
+                this.vx = (Math.random() - 0.5) * 0.8;
+                this.vy = (Math.random() - 0.5) * 0.8;
+                this.radius = Math.random() * 2.8 + 1.2;
+                this.opacity = Math.random() * 0.5 + 0.3;
+                // 色调: 蓝紫粉青
+                const hue = 200 + Math.random() * 180;
+                this.color = `hsla(${hue}, 80%, 70%, ${this.opacity})`;
+                this.colorLine = `hsla(${hue}, 70%, 60%, 0.15)`;
+            }
+            update() {
+                this.x += this.vx;
+                this.y += this.vy;
+                if (this.x < 0 || this.x > W) { this.vx *= -1;
+                    this.x += this.vx * 2; }
+                if (this.y < 0 || this.y > H) { this.vy *= -1;
+                    this.y += this.vy * 2; }
+                // 微弱的随机扰动
+                this.vx += (Math.random() - 0.5) * 0.02;
+                this.vy += (Math.random() - 0.5) * 0.02;
+                const maxSpeed = 1.2;
+                const sp = Math.hypot(this.vx, this.vy);
+                if (sp > maxSpeed) {
+                    this.vx = (this.vx / sp) * maxSpeed;
+                    this.vy = (this.vy / sp) * maxSpeed;
+                }
+            }
+            draw() {
+                ctx.beginPath();
+                ctx.arc(this.x, this.y, this.radius, 0, Math.PI * 2);
+                ctx.fillStyle = this.color;
+                ctx.fill();
+                // 光晕
+                const glow = ctx.createRadialGradient(this.x, this.y, 0, this.x, this.y, this.radius * 4);
+                glow.addColorStop(0, this.color.replace('0.3', '0.08').replace('0.5', '0.12'));
+                glow.addColorStop(1, 'transparent');
+                ctx.fillStyle = glow;
+                ctx.beginPath();
+                ctx.arc(this.x, this.y, this.radius * 4, 0, Math.PI * 2);
+                ctx.fill();
+            }
+        }
+
+        function initParticles() {
+            particles = [];
+            for (let i = 0; i < PARTICLE_COUNT; i++) {
+                particles.push(new Particle());
+            }
+        }
+        initParticles();
+
+        function drawParticles() {
+            ctx.clearRect(0, 0, W, H);
+
+            // 画连接线
+            for (let i = 0; i < particles.length; i++) {
+                for (let j = i + 1; j < particles.length; j++) {
+                    const dx = particles[i].x - particles[j].x;
+                    const dy = particles[i].y - particles[j].y;
+                    const dist = Math.hypot(dx, dy);
+                    if (dist < CONNECTION_DIST) {
+                        const alpha = (1 - dist / CONNECTION_DIST) * 0.25;
+                        ctx.beginPath();
+                        ctx.moveTo(particles[i].x, particles[i].y);
+                        ctx.lineTo(particles[j].x, particles[j].y);
+                        ctx.strokeStyle = `rgba(180, 200, 255, ${alpha})`;
+                        ctx.lineWidth = 0.6;
+                        ctx.stroke();
+                    }
+                }
+            }
+
+            // 画粒子
+            for (const p of particles) {
+                p.update();
+                p.draw();
+            }
+            requestAnimationFrame(drawParticles);
+        }
+        drawParticles();
+
+        // ============================================================
+        //  2. 拼图游戏
+        // ============================================================
+        const gridEl = document.getElementById('puzzle-grid');
+        const moveCountEl = document.getElementById('moveCount');
+        const timerDisplayEl = document.getElementById('timerDisplay');
+        const winOverlay = document.getElementById('win-overlay');
+        const winMovesEl = document.getElementById('winMoves');
+        const winTimeEl = document.getElementById('winTime');
+
+        let size = 4; // 3 或 4
+        let tiles = []; // 一维数组，存储每个位置的图块编号（0 = 空）
+        let emptyIndex = size * size - 1;
+        let moves = 0;
+        let timerSeconds = 0;
+        let timerInterval = null;
+        let isGameComplete = false;
+        let isGameStarted = false; // 第一次移动开始计时
+        let imageDataURL = '';
+
+        // ===== 生成艺术图片 (canvas) =====
+        function generatePuzzleImage(s) {
+            const imgSize = 600;
+            const c = document.createElement('canvas');
+            c.width = imgSize;
+            c.height = imgSize;
+            const cx = c.getContext('2d');
+
+            // 1. 渐变背景
+            const grad = cx.createRadialGradient(
+                imgSize * 0.3, imgSize * 0.3, 50,
+                imgSize * 0.7, imgSize * 0.7, imgSize * 0.8
+            );
+            grad.addColorStop(0, '#ffd6a5');
+            grad.addColorStop(0.2, '#fdf4b3');
+            grad.addColorStop(0.4, '#b8e6d0');
+            grad.addColorStop(0.6, '#a0d2eb');
+            grad.addColorStop(0.8, '#d4b8e0');
+            grad.addColorStop(1, '#f5b8b8');
+            cx.fillStyle = grad;
+            cx.fillRect(0, 0, imgSize, imgSize);
+
+            // 2. 随机彩色斑点
+            const colors = ['#ff6b6b', '#feca57', '#48dbfb', '#1dd1a1', '#5f27cd', '#ff9ff3', '#54a0ff', '#ff9f43'];
+            for (let i = 0; i < 40; i++) {
+                const x = Math.random() * imgSize;
+                const y = Math.random() * imgSize;
+                const r = 8 + Math.random() * 40;
+                const alpha = 0.15 + Math.random() * 0.25;
+                cx.beginPath();
+                cx.arc(x, y, r, 0, Math.PI * 2);
+                cx.fillStyle = colors[i % colors.length].replace(')', `,${alpha})`).replace('rgb', 'rgba');
+                cx.fill();
+            }
+
+            // 3. 一些线条装饰
+            for (let i = 0; i < 15; i++) {
+                const x1 = Math.random() * imgSize;
+                const y1 = Math.random() * imgSize;
+                const x2 = x1 + (Math.random() - 0.5) * 180;
+                const y2 = y1 + (Math.random() - 0.5) * 180;
+                cx.beginPath();
+                cx.moveTo(x1, y1);
+                cx.lineTo(x2, y2);
+                cx.strokeStyle = `rgba(255,255,255,${0.08 + Math.random() * 0.12})`;
+                cx.lineWidth = 2 + Math.random() * 6;
+                cx.stroke();
+            }
+
+            // 4. 绘制网格数字（每个格子区域）
+            const cellSize = imgSize / s;
+            cx.textAlign = 'center';
+            cx.textBaseline = 'middle';
+            for (let r = 0; r < s; r++) {
+                for (let c = 0; c < s; c++) {
+                    const idx = r * s + c;
+                    const num = idx + 1;
+                    const x = c * cellSize + cellSize / 2;
+                    const y = r * cellSize + cellSize / 2;
+
+                    // 数字背景光晕
+                    const glow = cx.createRadialGradient(x, y, 0, x, y, cellSize * 0.55);
+                    glow.addColorStop(0, 'rgba(255,255,255,0.25)');
+                    glow.addColorStop(1, 'rgba(255,255,255,0)');
+                    cx.fillStyle = glow;
+                    cx.beginPath();
+                    cx.arc(x, y, cellSize * 0.55, 0, Math.PI * 2);
+                    cx.fill();
+
+                    // 数字（大号、半透明）
+                    const fontSize = cellSize * 0.45;
+                    cx.font = `bold ${fontSize}px 'Segoe UI', 'PingFang SC', sans-serif`;
+                    cx.shadowColor = 'rgba(0,0,0,0.3)';
+                    cx.shadowBlur = 12;
+                    cx.fillStyle = `rgba(255,255,255,0.75)`;
+                    cx.fillText(num, x, y + 2);
+                    cx.shadowBlur = 0;
+                    cx.fillStyle = `rgba(30,30,50,0.35)`;
+                    cx.fillText(num, x, y);
+                    cx.fillStyle = `rgba(255,255,255,0.92)`;
+                    cx.fillText(num, x - 1, y - 1);
+                }
+            }
+
+            // 5. 网格线（细白线）
+            cx.strokeStyle = 'rgba(255,255,255,0.20)';
+            cx.lineWidth = 1.5;
+            for (let i = 0; i <= s; i++) {
+                const pos = i * cellSize;
+                cx.beginPath();
+                cx.moveTo(pos, 0);
+                cx.lineTo(pos, imgSize);
+                cx.stroke();
+                cx.beginPath();
+                cx.moveTo(0, pos);
+                cx.lineTo(imgSize, pos);
+                cx.stroke();
+            }
+
+            // 6. 边框装饰
+            cx.strokeStyle = 'rgba(255,255,255,0.12)';
+            cx.lineWidth = 3;
+            cx.strokeRect(0, 0, imgSize, imgSize);
+
+            return c.toDataURL('image/png');
+        }
+
+        // ===== 初始化 / 重置拼图 =====
+        function initPuzzle(newSize) {
+            if (newSize) size = newSize;
+            const total = size * size;
+            // 按顺序排列 [0,1,2,...,total-1]
+            tiles = Array.from({ length: total }, (_, i) => i);
+            emptyIndex = total - 1;
+            moves = 0;
+            isGameComplete = false;
+            isGameStarted = false;
+            timerSeconds = 0;
+            if (timerInterval) {
+                clearInterval(timerInterval);
+                timerInterval = null;
+            }
+            timerDisplayEl.textContent = '0';
+            moveCountEl.textContent = '0';
+            winOverlay.classList.remove('show');
+
+            // 生成图片
+            imageDataURL = generatePuzzleImage(size);
+
+            // 打乱（通过合法移动）
+            shuffleTiles();
+
+            // 渲染
+            renderGrid();
+        }
+
+        // ===== 打乱（合法移动） =====
+        function shuffleTiles() {
+            const total = size * size;
+            const steps = total * 120 + Math.floor(Math.random() * 200);
+            let idx = emptyIndex;
+            for (let i = 0; i < steps; i++) {
+                const neighbors = getNeighborIndices(idx);
+                const rand = neighbors[Math.floor(Math.random() * neighbors.length)];
+                // 交换
+                [tiles[idx], tiles[rand]] = [tiles[rand], tiles[idx]];
+                idx = rand;
+            }
+            // 确保不是已完成状态
+            if (checkComplete()) {
+                // 再交换两个相邻块
+                const a = Math.floor(Math.random() * (total - 1));
+                const b = a + 1;
+                if (a !== emptyIndex && b !== emptyIndex) {
+                    [tiles[a], tiles[b]] = [tiles[b], tiles[a]];
+                } else {
+                    // 简单交换最后两个
+                    if (total >= 2) {
+                        [tiles[total - 2], tiles[total - 1]] = [tiles[total - 1], tiles[total - 2]];
+                    }
+                }
+            }
+            // 更新空位索引
+            emptyIndex = tiles.indexOf(total - 1);
+            moves = 0;
+            moveCountEl.textContent = '0';
+        }
+
+        // ===== 获取相邻索引 =====
+        function getNeighborIndices(idx) {
+            const row = Math.floor(idx / size);
+            const col = idx % size;
+            const neighbors = [];
+            if (row > 0) neighbors.push(idx - size);
+            if (row < size - 1) neighbors.push(idx + size);
+            if (col > 0) neighbors.push(idx - 1);
+            if (col < size - 1) neighbors.push(idx + 1);
+            return neighbors;
+        }
+
+        // ===== 检查是否完成 =====
+        function checkComplete() {
+            return tiles.every((val, i) => val === i);
+        }
+
+        // ===== 渲染网格 =====
+        function renderGrid() {
+            const total = size * size;
+            gridEl.style.gridTemplateColumns = `repeat(${size}, 1fr)`;
+            gridEl.style.gridTemplateRows = `repeat(${size}, 1fr)`;
+            gridEl.innerHTML = '';
+
+            const imgSize = 600;
+            const cellSize = imgSize / size;
+
+            for (let i = 0; i < total; i++) {
+                const tileVal = tiles[i];
+                const div = document.createElement('div');
+                div.className = 'tile';
+                div.dataset.index = i;
+
+                if (tileVal === total - 1) {
+                    // 空白块
+                    div.classList.add('tile-empty');
+                    div.style.background = 'rgba(255,255,255,0.03)';
+                } else {
+                    // 计算在图片中的位置
+                    const row = Math.floor(tileVal / size);
+                    const col = tileVal % size;
+                    const x = col * cellSize;
+                    const y = row * cellSize;
+
+                    div.style.backgroundImage = `url(${imageDataURL})`;
+                    div.style.backgroundSize = `${imgSize}px ${imgSize}px`;
+                    div.style.backgroundPosition = `-${x}px -${y}px`;
+                    div.style.backgroundRepeat = 'no-repeat';
+                }
+
+                div.addEventListener('click', () => onTileClick(i));
+                gridEl.appendChild(div);
+            }
+
+            // 如果游戏已完成，显示胜利
+            if (checkComplete() && !isGameComplete) {
+                isGameComplete = true;
+                if (timerInterval) {
+                    clearInterval(timerInterval);
+                    timerInterval = null;
+                }
+                winMovesEl.textContent = moves;
+                winTimeEl.textContent = timerSeconds;
+                setTimeout(() => {
+                    winOverlay.classList.add('show');
+                }, 350);
+                // 给所有块加动画
+                document.querySelectorAll('.tile:not(.tile-empty)').forEach(el => {
+                    el.classList.add('tile-win');
+                });
+            }
+        }
+
+        // ===== 点击拼图块 =====
+        function onTileClick(index) {
+            if (isGameComplete) return;
+            const neighbors = getNeighborIndices(emptyIndex);
+            if (!neighbors.includes(index)) return;
+
+            // 开始计时（第一次移动）
+            if (!isGameStarted) {
+                isGameStarted = true;
+                timerInterval = setInterval(() => {
+                    timerSeconds++;
+                    timerDisplayEl.textContent = timerSeconds;
+                }, 1000);
+            }
+
+            // 交换
+            [tiles[emptyIndex], tiles[index]] = [tiles[index], tiles[emptyIndex]];
+            emptyIndex = index;
+            moves++;
+            moveCountEl.textContent = moves;
+
+            renderGrid();
+        }
+
+        // ===== 切换尺寸 =====
+        function setSize(newSize) {
+            if (newSize === size) return;
+            size = newSize;
+            document.querySelectorAll('.size-group button').forEach(b => {
+                b.classList.toggle('active', parseInt(b.dataset.size) === size);
+            });
+            initPuzzle(size);
+        }
+
+        // ===== 重置 =====
+        function resetGame() {
+            if (timerInterval) {
+                clearInterval(timerInterval);
+                timerInterval = null;
+            }
+            isGameStarted = false;
+            timerSeconds = 0;
+            timerDisplayEl.textContent = '0';
+            winOverlay.classList.remove('show');
+            initPuzzle(size);
+        }
+
+        // ============================================================
+        //  3. 绑定事件 & 启动
+        // ============================================================
+        document.getElementById('btnReset').addEventListener('click', resetGame);
+        document.getElementById('btnSize3').addEventListener('click', () => setSize(3));
+        document.getElementById('btnSize4').addEventListener('click', () => setSize(4));
+
+        // 键盘快捷键 R 重置
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'r' || e.key === 'R') resetGame();
+        });
+
+        // ===== 启动游戏 =====
+        initPuzzle(4);
+
+        // ===== 窗口自适应（重新渲染） =====
+        let resizeTimeout;
+        window.addEventListener('resize', () => {
+            clearTimeout(resizeTimeout);
+            resizeTimeout = setTimeout(() => {
+                // 粒子画布已由 resizeCanvas 处理
+                // 拼图不需要重绘，但保证显示正确
+            }, 200);
+        });
+
+        console.log('🧩 粒子拼图已加载！ 按 R 键重置。');
+    </script>
+</body>
+</html>
