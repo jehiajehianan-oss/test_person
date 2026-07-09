@@ -1,0 +1,26 @@
+﻿{
+    "pet_id":  "youzhenzhen",
+    "display_name":  "悠真真",
+    "description":  "Q版黑发黄眼的悠真真，带额头黄标和黄色小纸片。",
+    "rows":  [
+                 "idle",
+                 "running-right",
+                 "running-left",
+                 "waving",
+                 "jumping",
+                 "failed",
+                 "waiting",
+                 "running",
+                 "review"
+             ],
+    "frame_width":  192,
+    "frame_height":  208,
+    "columns":  8,
+    "rows_count":  9,
+    "source":  [
+                   "D:\\素材\\悠真真\\OIP (2).jpg",
+                   "D:\\素材\\悠真真\\OIP.jpg",
+                   "D:\\素材\\悠真真\\OIP (1).jpg"
+               ],
+    "note":  "Reference-image based hatch-pet build; generated locally without imagegen availability."
+}
